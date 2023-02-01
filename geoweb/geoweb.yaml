@@ -1,0 +1,98 @@
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: geoweb-configmap
+data:
+  GW_AUTH_LOGOUT_URL: https://keycloak.home.rauhala.net/realms/master/protocol/openid-connect/logout?client_id={client_id}
+  GW_AUTH_TOKEN_URL: https://keycloak.home.rauhala.net/realms/master/protocol/openid-connect/token
+  GW_AUTH_CLIENT_ID: geoweb
+  GW_AUTH_LOGIN_URL: https://keycloak.home.rauhala.net/realms/master/protocol/openid-connect/auth?client_id={client_id}&response_type=code&scope=email+openid+offline_access&redirect_uri={app_url}/code&state={state}
+  GW_INFRA_BASE_URL: https://api.opengeoweb.com
+    #  GW_CAP_BASE_URL: {{ $frontend.GW_CAP_BASE_URL | quote }}
+  GW_APP_URL: https://geoweb.rauhalat.org
+    #  GW_GITLAB_PRESETS_BASE_URL: {{ $frontend.GW_GITLAB_PRESETS_BASE_URL | quote }}
+    #  GW_GITLAB_PRESETS_API_PATH: {{ $frontend.GW_GITLAB_PRESETS_API_PATH | quote }}
+    #  GW_GITLAB_PROJECT_ID: {{ $frontend.GW_GITLAB_PROJECT_ID | quote }}
+    #  GW_GITLAB_PRESETS_PATH: {{ $frontend.GW_GITLAB_PRESETS_PATH | quote }}
+    #  GW_GITLAB_BRANCH: {{ $frontend.GW_GITLAB_BRANCH | quote }}
+  GW_INITIAL_PRESETS_FILENAME: initialPresets.json
+  GW_SCREEN_PRESETS_FILENAME: screenPresets.json
+  GW_DEFAULT_THEME: darkTheme
+  GW_FEATURE_APP_TITLE: GeoWeb HomeLab
+  GW_FEATURE_FORCE_AUTHENTICATION: "false"
+  GW_FEATURE_MODULE_SPACE_WEATHER: "false"
+  GW_FEATURE_MODULE_TAF: "false"
+  GW_FEATURE_MODULE_SIGMET: "false"
+  GW_FEATURE_MODULE_AIRMET: "false"
+  GW_FEATURE_MENU_SATCOMP: "false"
+  GW_FEATURE_MENU_FEEDBACK: "false"
+  GW_FEATURE_MENU_INFO: "false"
+  GW_FEATURE_MENU_VERSION: "false"
+    #  GW_PRESET_BACKEND_URL: {{ $frontend.GW_PRESET_BACKEND_URL | quote }}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geoweb
+  labels:
+    app: geoweb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: geoweb
+  template:
+    metadata:
+      labels:
+        app: geoweb
+    spec:
+      containers:
+      - name: geoweb
+        image: opengeoweb/geoweb
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: geoweb-configmap
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: geoweb-service
+spec:
+  selector:
+    app: geoweb
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+ name: geoweb-ingress
+ annotations:
+   cert-manager.io/cluster-issuer: letsencrypt
+spec:
+ tls:
+ - hosts:
+   - geoweb.rauhalat.org
+   secretName: geoweb-ingress-tls
+ rules:
+ - host: geoweb.rauhalat.org
+   http:
+     paths:
+     - backend:
+         service:
+           name: geoweb-service
+           port:
+             number: 8080
+       path: /
+       pathType: Prefix
