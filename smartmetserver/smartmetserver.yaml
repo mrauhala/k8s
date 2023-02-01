@@ -1,0 +1,59 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartmetserver
+  labels:
+    app: smartmetserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: smartmetserver
+  template:
+    metadata:
+      labels:
+        app: smartmetserver
+    spec:
+      containers:
+      - name: smartmetserver
+        image: fmidev/smartmetserver
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartmetserver-service
+spec:
+  selector:
+    app: smartmetserver
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+ name: smartmetserver-ingress
+ annotations:
+   cert-manager.io/cluster-issuer: letsencrypt
+spec:
+ tls:
+ - hosts:
+   - data.lab.rauhalat.org
+   secretName: smartmetserver-ingress-tls
+ rules:
+ - host: data.lab.rauhalat.org
+   http:
+     paths:
+     - backend:
+         service:
+           name: smartmetserver-service
+           port:
+             number: 8080
+       path: /
+       pathType: Prefix
